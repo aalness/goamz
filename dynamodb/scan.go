@@ -66,6 +66,13 @@ func (t *Table) ScanWithPagination(startKey *Key, attributeComparisons []Attribu
 	return t.FetchResults(startKey, q)
 }
 
+func (t *Table) LimitedScanWithPagination(startKey *Key, attributeComparisons []AttributeComparison, limit int64) ([]map[string]*Attribute, *Key, error) {
+	q := NewQuery(t)
+	q.AddScanFilter(attributeComparisons)
+	q.AddLimit(limit)
+	return t.FetchResults(startKey, q)
+}
+
 func (t *Table) ParallelScan(attributeComparisons []AttributeComparison, segment int, totalSegments int) ([]map[string]*Attribute, error) {
 	q := NewQuery(t)
 	q.AddScanFilter(attributeComparisons)
