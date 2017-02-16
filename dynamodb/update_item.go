@@ -26,9 +26,10 @@ func (t *Table) UpdateItem(key *Key) *UpdateItem {
 }
 
 type UpdateItem struct {
-	table           *Table
-	query           *Query
-	hasReturnValues bool
+	table               *Table
+	query               *Query
+	hasReturnValues     bool
+	hasConsumedCapacity bool
 }
 
 func (u *UpdateItem) String() string {
@@ -39,6 +40,13 @@ func (u *UpdateItem) String() string {
 func (u *UpdateItem) ReturnValues(returnValues ReturnValues) *UpdateItem {
 	u.hasReturnValues = (returnValues != NONE)
 	u.query.AddReturnValues(returnValues)
+	return u
+}
+
+// Specify whether consumed capacity is to be returned
+func (u *UpdateItem) ReturnConsumedCapacity(shouldReturnConsumedCapacity bool) *UpdateItem {
+	u.hasConsumedCapacity = shouldReturnConsumedCapacity
+	u.query.ReturnConsumedCapacity(shouldReturnConsumedCapacity)
 	return u
 }
 
@@ -77,26 +85,36 @@ func (u *UpdateItem) ConditionExpression(expression string) *UpdateItem {
 	return u
 }
 
-// Execute this query.
-func (u *UpdateItem) Execute() (*UpdateResult, error) {
+// Execute this query and return complete json response
+func (u *UpdateItem) Execute2() (*simplejson.Json, *UpdateResult, error) {
 	jsonResponse, err := u.table.Server.queryServer(target("UpdateItem"), u.query)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if u.hasReturnValues {
-		resp, err := simplejson.NewJson(jsonResponse)
+	var resp *simplejson.Json
+	if u.hasConsumedCapacity || u.hasReturnValues {
+		resp, err = simplejson.NewJson(jsonResponse)
 		if err != nil {
-			return nil, err
+			return resp, nil, err
 		}
+	}
+
+	if resp != nil && u.hasReturnValues {
 		attrib, err := resp.Get("Attributes").Map()
 		if err != nil {
-			return nil, err
+			return resp, nil, err
 		}
-		return &UpdateResult{parseAttributes(attrib)}, nil
+		return resp, &UpdateResult{parseAttributes(attrib)}, nil
 	}
-	return nil, nil
+	return resp, nil, nil
+}
+
+// Execute this query.
+func (u *UpdateItem) Execute() (*UpdateResult, error) {
+	_, result, err := u.Execute2()
+	return result, err
 }
 
 type UpdateResult struct {

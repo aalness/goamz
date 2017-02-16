@@ -312,15 +312,52 @@ func (t *Table) ConditionalDeleteItem2(key *Key, expected []Attribute) (*simplej
 	return t.deleteItem2(key, expected, true)
 }
 
+func (t *Table) AddAttributes2(key *Key, attributes []Attribute) (*simplejson.Json, error) {
+	return t.modifyAttributes2(key, attributes, nil, "ADD", true)
+}
+
+func (t *Table) UpdateAttributes2(key *Key, attributes []Attribute) (*simplejson.Json, error) {
+	return t.modifyAttributes2(key, attributes, nil, "PUT", true)
+}
+
+func (t *Table) DeleteAttributes2(key *Key, attributes []Attribute) (
+	*simplejson.Json, error) {
+	return t.modifyAttributes2(key, attributes, nil, "DELETE", true)
+}
+
+func (t *Table) ConditionalAddAttributes2(key *Key, attributes, expected []Attribute) (
+	*simplejson.Json, error) {
+	return t.modifyAttributes2(key, attributes, expected, "ADD", true)
+}
+
+func (t *Table) ConditionalUpdateAttributes2(key *Key, attributes, expected []Attribute) (
+	*simplejson.Json, error) {
+	return t.modifyAttributes2(key, attributes, expected, "PUT", true)
+}
+
+func (t *Table) ConditionalDeleteAttributes2(key *Key, attributes, expected []Attribute) (
+	*simplejson.Json, error) {
+	return t.modifyAttributes2(key, attributes, expected, "DELETE", true)
+}
+
 func (t *Table) modifyAttributes(key *Key, attributes, expected []Attribute, action string) (bool, error) {
+	_, err := t.modifyAttributes2(key, attributes, expected, action, false)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (t *Table) modifyAttributes2(key *Key, attributes, expected []Attribute, action string, shouldReturnConsumedCapacity bool) (*simplejson.Json, error) {
 
 	if len(attributes) == 0 {
-		return false, errors.New("At least one attribute is required.")
+		return nil, errors.New("At least one attribute is required.")
 	}
 
 	q := NewQuery(t)
 	q.AddKey(t, key)
 	q.AddUpdates(attributes, action)
+	q.ReturnConsumedCapacity(shouldReturnConsumedCapacity)
 
 	if expected != nil {
 		q.AddExpected(expected)
@@ -329,15 +366,15 @@ func (t *Table) modifyAttributes(key *Key, attributes, expected []Attribute, act
 	jsonResponse, err := t.Server.queryServer(target("UpdateItem"), q)
 
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	_, err = simplejson.NewJson(jsonResponse)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	return true, nil
+	return simplejson.NewJson(jsonResponse)
 }
 
 func parseAttributes(s map[string]interface{}) map[string]*Attribute {
